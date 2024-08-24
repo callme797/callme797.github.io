@@ -1,0 +1,252 @@
+<html>
+
+<style>
+    #availablePlayers div,
+    #teamA div,
+    #teamB div {
+        padding: 5px;
+        margin: 2px;
+        border: 1px solid #ccc;
+        cursor: pointer;
+    }
+
+    #teamA,
+    #teamB {
+        margin-top: 20px;
+    }
+</style>
+
+<h2>Available Players</h2>
+<div id="availablePlayers"></div>
+
+<div id="teamA">
+    <h3>Team A</h3>
+    <div id="teamAPlayers"></div>
+    <p>Average K/D Trials: <span id="avgKDTrialsA">0.00</span></p>
+    <p>Average K/D Crucible: <span id="avgKDCrucibleA">0.00</span></p>
+</div>
+
+<div id="teamB">
+    <h3>Team B</h3>
+    <div id="teamBPlayers"></div>
+    <p>Average K/D Trials: <span id="avgKDTrialsB">0.00</span></p>
+    <p>Average K/D Crucible: <span id="avgKDCrucibleB">0.00</span></p>
+</div>
+
+<button onclick="resetTeams()">Reset Teams</button>
+
+<h3>Reroll Options</h3>
+<label>Sort by:</label>
+<label><input type="radio" name="sortKDRadio" value="Trials" checked> K/D Trials</label>
+<label><input type="radio" name="sortKDRadio" value="Crucible"> K/D Crucible</label>
+
+<div>
+    <label>Max K/D Trials Difference: <span id="kdTrialsDiffValue">0</span></label>
+    <input type="range" id="kdTrialsDifference" min="0" max="1" step="0.01" value="0"
+        oninput="document.getElementById('kdTrialsDiffValue').innerText = this.value">
+    <input type="checkbox" id="kdTrialsCheckbox" checked> Consider K/D Trials Difference
+</div>
+
+<div>
+    <label>Max K/D Crucible Difference: <span id="kdCrucibleDiffValue">0</span></label>
+    <input type="range" id="kdCrucibleDifference" min="0" max="1" step="0.01" value="0"
+        oninput="document.getElementById('kdCrucibleDiffValue').innerText = this.value">
+    <input type="checkbox" id="kdCrucibleCheckbox" checked> Consider K/D Crucible Difference
+</div>
+
+<button onclick="rerollTeams()">Reroll Teams</button>
+
+<h3>Add Player</h3>
+<input type="text" id="playerName" placeholder="Name">
+<input type="text" id="playerKDTrials" placeholder="K/D Trials">
+<input type="text" id="playerKDCrucible" placeholder="K/D Crucible">
+<button onclick="addPlayer()">Add Player</button>
+
+<h3>Import Player Base</h3>
+<textarea id="playerBase" placeholder="Paste your player base here...">garrus#8697	1.43	1.5
+red_threat#8858	1.29	1.54
+alter#8512	1.22	1.39
+lev1than#5504	1.01	1.35
+sharic#3479	0.99	1.13
+excelsior#0210	0.99	1.22
+123#7424	0.96	0.95
+TpoTpo#5108	0.94	1.06
+RedCatz#9878	0.87	1.01
+tubus#8478	0.75	0.9
+ember/-_-/#9250	0.57	0.79
+Чебупеля_Бл#6487	0.66	0.99
+freelancer_kabrinski#8782	0.59	0.8
+Diadelliya#4036	0.45	0.66
+dilfin4ik_#4305	0.2	0.49</textarea>
+<button onclick="importPlayers()">Import Players</button>
+
+<script>
+    let availablePlayers = [];
+    let currentTeamA = [];
+    let currentTeamB = [];
+
+    function addPlayer() {
+        const name = document.getElementById('playerName').value;
+        const kdTrials = parseFloat(document.getElementById('playerKDTrials').value.replace(',', '.')) || 0;
+        const kdCrucible = parseFloat(document.getElementById('playerKDCrucible').value.replace(',', '.')) || 0;
+
+        const player = { name, kdTrials, kdCrucible };
+        availablePlayers.push(player);
+        updateAvailablePlayers();
+    }
+
+    function updateAvailablePlayers() {
+        const availablePlayersDiv = document.getElementById('availablePlayers');
+        availablePlayersDiv.innerHTML = '';
+
+        availablePlayers.forEach((player, index) => {
+            const playerDiv = document.createElement('div');
+            playerDiv.innerText = `${player.name} (K/D Trials: ${player.kdTrials}, K/D Crucible: ${player.kdCrucible})`;
+            playerDiv.onclick = () => addToTeam(player, index);
+            availablePlayersDiv.appendChild(playerDiv);
+        });
+    }
+
+    function addToTeam(player, index) {
+        if (currentTeamA.length < 6) {
+            currentTeamA.push(player);
+            availablePlayers.splice(index, 1);
+        } else if (currentTeamB.length < 6) {
+            currentTeamB.push(player);
+            availablePlayers.splice(index, 1);
+        }
+        updateAvailablePlayers();
+        updateTeam('A', currentTeamA);
+        updateTeam('B', currentTeamB);
+    }
+
+    function updateTeam(team, teamArray) {
+        const teamPlayersDiv = document.getElementById(`team${team}Players`);
+        teamPlayersDiv.innerHTML = '';
+
+        let totalKDTrials = 0;
+        let totalKDCrucible = 0;
+
+        teamArray.forEach((player, index) => {
+            const playerDiv = document.createElement('div');
+            playerDiv.innerText = `${player.name} (K/D Trials: ${player.kdTrials}, K/D Crucible: ${player.kdCrucible})`;
+            playerDiv.onclick = () => returnToAvailable(player, team, index);
+            teamPlayersDiv.appendChild(playerDiv);
+
+            totalKDTrials += player.kdTrials;
+            totalKDCrucible += player.kdCrucible;
+        });
+
+        const avgKDTrials = teamArray.length ? (totalKDTrials / teamArray.length).toFixed(2) : '0.00';
+        const avgKDCrucible = teamArray.length ? (totalKDCrucible / teamArray.length).toFixed(2) : '0.00';
+
+        document.getElementById(`avgKDTrials${team}`).innerText = avgKDTrials;
+        document.getElementById(`avgKDCrucible${team}`).innerText = avgKDCrucible;
+    }
+
+    function returnToAvailable(player, team, index) {
+        if (team === 'A') {
+            currentTeamA.splice(index, 1);
+        } else {
+            currentTeamB.splice(index, 1);
+        }
+        availablePlayers.push(player);
+        updateAvailablePlayers();
+        updateTeam('A', currentTeamA);
+        updateTeam('B', currentTeamB);
+    }
+
+    function resetTeams() {
+        availablePlayers = availablePlayers.concat(currentTeamA, currentTeamB);
+        currentTeamA.length = 0;
+        currentTeamB.length = 0;
+        updateAvailablePlayers();
+        updateTeam('A', currentTeamA);
+        updateTeam('B', currentTeamB);
+    }
+
+    function importPlayers() {
+        const baseText = document.getElementById('playerBase').value;
+        const lines = baseText.split('\n');
+
+        lines.forEach(line => {
+            const [name, kdTrials, kdCrucible] = line.split(/\s+/);
+            const player = {
+                name,
+                kdTrials: parseFloat(kdTrials.replace(',', '.')) || 0,
+                kdCrucible: parseFloat(kdCrucible.replace(',', '.')) || 0
+            };
+            availablePlayers.push(player);
+        });
+
+        updateAvailablePlayers();
+    }
+
+    function rerollTeams() {
+        if (currentTeamA.length === 0 && currentTeamB.length === 0) return;
+
+        let allPlayers = currentTeamA.concat(currentTeamB);
+
+        currentTeamA.length = 0;
+        currentTeamB.length = 0;
+
+        const sortBy = document.querySelector('input[name="sortKDRadio"]:checked').value;
+
+        allPlayers.sort((a, b) => {
+            if (sortBy === "Trials") {
+                return b.kdTrials - a.kdTrials;
+            } else {
+                return b.kdCrucible - a.kdCrucible;
+            }
+        });
+
+        allPlayers.forEach((player, index) => {
+            if (index % 2 === 0) {
+                currentTeamA.push(player);
+            } else {
+                currentTeamB.push(player);
+            }
+        });
+
+        updateTeam('A', currentTeamA);
+        updateTeam('B', currentTeamB);
+
+        const kdTrialsLimit = parseFloat(document.getElementById('kdTrialsDifference').value);
+        const kdCrucibleLimit = parseFloat(document.getElementById('kdCrucibleDifference').value);
+        const considerTrials = document.getElementById('kdTrialsCheckbox').checked;
+        const considerCrucible = document.getElementById('kdCrucibleCheckbox').checked;
+
+        let iterations = 0;
+        const maxIterations = 100;
+
+        while (iterations < maxIterations) {
+            const avgKDTrialsA = parseFloat(document.getElementById('avgKDTrialsA').textContent);
+            const avgKDCrucibleA = parseFloat(document.getElementById('avgKDCrucibleA').textContent);
+            const avgKDTrialsB = parseFloat(document.getElementById('avgKDTrialsB').textContent);
+            const avgKDCrucibleB = parseFloat(document.getElementById('avgKDCrucibleB').textContent);
+
+            const trialsDiff = Math.abs(avgKDTrialsA - avgKDTrialsB);
+            const crucibleDiff = Math.abs(avgKDCrucibleA - avgKDCrucibleB);
+
+            if ((!considerTrials || trialsDiff <= kdTrialsLimit) &&
+                (!considerCrucible || crucibleDiff <= kdCrucibleLimit)) {
+                break;
+            } else {
+                let randomIndexA = Math.floor(Math.random() * currentTeamA.length);
+                let randomIndexB = Math.floor(Math.random() * currentTeamB.length);
+
+                let tempPlayer = currentTeamA[randomIndexA];
+                currentTeamA[randomIndexA] = currentTeamB[randomIndexB];
+                currentTeamB[randomIndexB] = tempPlayer;
+
+                updateTeam('A', currentTeamA);
+                updateTeam('B', currentTeamB);
+            }
+
+            iterations++;
+        }
+    }
+
+</script>
+
+</html>
